@@ -1,0 +1,6 @@
+[zigpoc]
+server1 ansible_host=18.60.154.15
+
+[zigpoc:vars]
+ansible_user=ubuntu
+ansible_ssh_private_key_file=./../priv.key

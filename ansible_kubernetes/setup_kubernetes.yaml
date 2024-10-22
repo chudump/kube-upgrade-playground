@@ -1,0 +1,24 @@
+- name: Setup Kubernetes for use
+  hosts: zigpoc
+  become: yes
+  tasks:
+    - name: Ensure Kubectl exists
+      ansible.builtin.shell: "whereis kubectl"
+      register: kubectl_loc
+    
+    - name: Ensure Helm
+      ansible.builtin.shell: "whereis helm"
+      register: helm_loc
+
+    - name: Install Helm
+      ansible.builtin.shell: "curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | sudo bash"
+      when: helm_loc.stdout != "helm:"
+
+    - name: Install calico networking
+      ansible.builtin.shell: "kubectl --kubeconfig /home/ubuntu/.kube/config apply -f https://raw.githubusercontent.com/projectcalico/calico/v3.28.2/manifests/calico.yaml"
+      when: kubectl_loc.stdout != "kubectl:"
+    
+    # - name: Install nginx ingress
+    #   ansible.builtin.shell:
+    #     - "kubectl apply -f https://raw.githubusercontent.com/projectcalico/calico/v3.28.2/manifests/calico.yaml"
+    #   when: kubectl_loc.stdout != "kubectl:"

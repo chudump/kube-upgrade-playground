@@ -1,0 +1,91 @@
+---
+- name: Kubernetes installation
+  hosts: zigpoc
+  become: yes
+  tasks:
+    - name: Add zigram debian repo
+      ansible.builtin.apt_repository:
+        repo: 'deb [trusted=yes] https://repository.debian.zigram.org/apt-repo/ ./'
+        filename: 'zigram.list'
+        state: present
+
+    - name: Update apt cache
+      ansible.builtin.apt:
+        update_cache: yes
+
+    - name: Essential tools
+      ansible.builtin.apt:
+        name:
+          - curl
+          - git
+          - vim
+          - unzip
+          - zip
+        state: present
+        install_recommends: true
+
+
+    - name: Is croc installed?
+      ansible.builtin.shell: "whereis croc"
+      register: croc_loc
+      changed_when: false
+
+    - name: Is docker installed?
+      ansible.builtin.shell: "whereis docker"
+      register: docker_loc
+      changed_when: false
+
+    - name: Run the curl command to install Croc
+      ansible.builtin.shell: "curl https://getcroc.schollz.com | bash"
+      when: croc_loc.stdout == 'croc:'
+
+    - name: Install Docker
+      ansible.builtin.shell: "curl https://get.docker.com/ | sudo bash"
+      when: docker_loc.stdout == "docker:"
+
+    #    sudo apt-cache madison kubelet kubeadm kubelet
+    #    kubelet |  1.23.0-00 | https://repository.debian.zigram.org/apt-repo ./ Packages
+    #    kubeadm |  1.23.0-00 | https://repository.debian.zigram.org/apt-repo ./ Packages
+    #    kubelet |  1.23.0-00 | https://repository.debian.zigram.org/apt-repo ./ Packages
+
+    - name: install cri tools
+      ansible.builtin.shell: "cd /home/ubuntu/ && wget https://github.com/chudump/kubernetes/releases/download/v1.24.17/cri-tools_1.26.0-00_amd64.deb"
+
+    - name: install cri tools
+      ansible.builtin.shell: "sudo dpkg -i /home/ubuntu/cri-tools_1.26.0-00_amd64.deb"
+
+    - name: install kubelet kubeadm kubectl
+      ansible.builtin.apt:
+        name:
+          - kubelet=1.23.0-00
+          - kubeadm=1.23.0-00
+          - kubectl=1.23.0-00
+        state: present
+        install_recommends: true
+
+    - name: downgrade docker
+      ansible.builtin.apt:
+        name:
+          - docker-ce=5:20.10.13~3-0~ubuntu-jammy
+        state: present
+        install_recommends: true
+        force: true
+
+    - name: Start Kubernetes server
+      ansible.builtin.shell: "sudo kubeadm init --apiserver-advertise-address=0.0.0.0"
+    
+    - name: Ensure .kube directory exists
+      file:
+        path: ~/.kube
+        state: directory
+        mode: '0700'
+    
+    - name: Copy kubeconfig
+      copy:
+        src: /etc/kubernetes/admin.conf
+        dest: ~/.kube/config
+        mode: '0600'
+        owner: "ubuntu"
+
+    - name: Install calico networking
+      ansible.builtin.shell: "kubectl --kubeconfig /home/ubuntu/.kube/config apply -f https://raw.githubusercontent.com/projectcalico/calico/v3.28.2/manifests/calico.yaml"
